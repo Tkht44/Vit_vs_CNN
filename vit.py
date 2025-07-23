@@ -120,8 +120,11 @@ class TransformerEncoder(nn.Module):
             - x.shape = torch.Size([batch_size, n_patches + 1, dim])
         """
         for _ in range(self.depth):
-            x = self.multi_head_attention(self.norm(x)) + x
-            x = self.mlp(self.norm(x)) + x
+            # Pre-Norm
+            normalized_x = self.norm(x)
+            x = self.multi_head_attention(normalized_x) + x
+            normalized_x = self.norm(x)
+            x = self.mlp(normalized_x) + x
 
         return x
 
@@ -129,7 +132,12 @@ class TransformerEncoder(nn.Module):
 class MLPHead(nn.Module):
     def __init__(self, dim, out_dim):
         super().__init__()
-        self.net = nn.Sequential(nn.LayerNorm(dim), nn.Linear(dim, out_dim))
+        self.net = nn.Sequential(
+            nn.LayerNorm(dim),
+            nn.Linear(dim, dim), # Added a hidden layer
+            nn.GELU(), # Added GELU activation
+            nn.Linear(dim, out_dim)
+        )
 
     def forward(self, x):
         x = self.net(x)
